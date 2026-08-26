@@ -6,13 +6,16 @@ export const QUESTION_COUNT = 5;
 /** Max length for the book/chapter inputs. Shared with the client form so its maxLength/UI validation stays in sync with this schema. */
 export const MAX_FIELD_LENGTH = 200;
 
+/** Max length for a pasted chapter-text fallback. Generous, but bounded — see lib/generate-quiz.ts for how this input is sandboxed. */
+export const MAX_CHAPTER_TEXT_LENGTH = 20000;
+
 // Hard ceilings on model-generated quiz content. These are a backstop, not
 // just a style nudge: they're independent of prompt compliance, and they're
 // also fed into the request's output_config.format (see lib/generate-quiz.ts)
 // so the API is asked to constrain generation to this same schema.
-const MAX_QUESTION_LENGTH = 300;
-const MAX_OPTION_LENGTH = 150;
-const MAX_REASON_LENGTH = 500;
+export const MAX_QUESTION_LENGTH = 300;
+export const MAX_OPTION_LENGTH = 150;
+export const MAX_REASON_LENGTH = 500;
 
 export const QuizQuestionSchema = z.object({
   question: z.string().min(1).max(MAX_QUESTION_LENGTH),
@@ -45,5 +48,13 @@ export type Quiz = Extract<QuizResult, { status: "ok" }>;
 export const GenerateQuizRequestSchema = z.object({
   book: z.string().trim().min(1).max(MAX_FIELD_LENGTH),
   chapter: z.string().trim().min(1).max(MAX_FIELD_LENGTH),
+  // Optional: paste the chapter text directly instead of relying on web
+  // search — useful when search can't find a summary (obscure/self-published
+  // books). See lib/generate-quiz.ts for how this is sandboxed in the prompt.
+  chapterText: z.string().trim().max(MAX_CHAPTER_TEXT_LENGTH).optional(),
+  // When true, bypass any cached quiz for this book+chapter and generate a
+  // fresh one (see lib/quiz-cache.ts) — used by the "New questions on this
+  // chapter" button so it doesn't just hand back the same cached result.
+  regenerate: z.boolean().default(false),
 });
 export type GenerateQuizRequest = z.infer<typeof GenerateQuizRequestSchema>;
