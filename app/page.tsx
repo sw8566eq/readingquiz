@@ -1,69 +1,102 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import QuizForm from "@/components/QuizForm";
+import Quiz from "@/components/Quiz";
+import type { Quiz as QuizType } from "@/lib/quiz-schema";
+
+type Status = "idle" | "loading" | "error" | "ready";
+
+export default function Page() {
+  const [status, setStatus] = useState<Status>("idle");
+  const [quiz, setQuiz] = useState<QuizType | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Remembered so "New questions on this chapter" can resubmit the same
+  // pasted source text — the API response never echoes it back to us.
+  const [lastChapterText, setLastChapterText] = useState<string | undefined>(undefined);
+
+  async function handleSubmit(
+    book: string,
+    chapter: string,
+    chapterText?: string,
+    regenerate = false,
+  ) {
+    setStatus("loading");
+    setErrorMessage(null);
+    setLastChapterText(chapterText);
+
+    let res: Response;
+    try {
+      res = await fetch("/api/generate-quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book, chapter, chapterText, regenerate }),
+      });
+    } catch {
+      setErrorMessage("Network error — couldn't reach the server. Please try again.");
+      setStatus("error");
+      return;
+    }
+
+    // A separate try/catch: the request itself succeeded, but the body
+    // might not be valid JSON (e.g. an upstream timeout page) — that's a
+    // different failure than "network error" and shouldn't be reported as one.
+    try {
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMessage(data.error ?? "Something went wrong.");
+        setStatus("error");
+        return;
+      }
+      setQuiz(data as QuizType);
+      setStatus("ready");
+    } catch {
+      setErrorMessage("Got an unexpected response from the server. Please try again.");
+      setStatus("error");
+    }
+  }
+
+  function handleReset() {
+    setQuiz(null);
+    setStatus("idle");
+    setErrorMessage(null);
+  }
+
+  function handleRegenerate() {
+    if (!quiz) return;
+    // Re-uses the normalized book/chapter the model already settled on (plus
+    // the original pasted text, if any), and marks the request as a
+    // regenerate so the cache layer knows to skip serving a stale quiz for
+    // this key rather than handing back the same result.
+    handleSubmit(quiz.book, quiz.chapter, lastChapterText, true);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-12">
+      <h1 className="mb-1 text-2xl font-semibold">ReadingQuiz</h1>
+      <p className="mb-8 text-sm text-black/60 dark:text-white/60">
+        Pick a book and chapter — an AI researches a summary and quizzes you on it.
+      </p>
+
+      {status !== "ready" && (
+        <>
+          <QuizForm onSubmit={handleSubmit} loading={status === "loading"} />
+          {status === "loading" && (
+            <p className="mt-4 text-sm text-black/60 dark:text-white/60">
+              {lastChapterText
+                ? "Writing your quiz from the pasted text… this can take a few seconds."
+                : "Searching the web and writing your quiz… this can take 15–45 seconds."}
+            </p>
+          )}
+          {status === "error" && errorMessage && (
+            <p className="mt-4 text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+          )}
+        </>
+      )}
+
+      {status === "ready" && quiz && (
+        <Quiz quiz={quiz} onReset={handleReset} onRegenerate={handleRegenerate} />
+      )}
+    </main>
   );
 }
