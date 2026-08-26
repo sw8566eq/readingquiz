@@ -22,7 +22,16 @@ export default function Quiz({ quiz, onReset, onRegenerate }: QuizProps) {
   const finished = currentIndex >= quiz.questions.length;
 
   function selectAnswer(optionIndex: number) {
-    if (answers[currentIndex] !== null) return; // locked in once answered — immediate feedback, no changing your mind
+    // Locked in once answered — immediate feedback, no changing your mind.
+    // Every option button is also `disabled` once answered, and React's own
+    // event system won't invoke a click handler on a disabled button
+    // regardless of what the raw DOM node's `disabled` attribute is changed
+    // to afterward — so this guard can't actually be exercised through
+    // rendered UI. Kept anyway as a state-level backstop in case that ever
+    // changes; not meaningfully testable in isolation without exporting
+    // internals just for a test.
+    /* v8 ignore next */
+    if (answers[currentIndex] !== null) return;
     setAnswers((prev) => {
       const next = [...prev];
       next[currentIndex] = optionIndex;

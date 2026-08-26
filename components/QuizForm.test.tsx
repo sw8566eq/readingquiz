@@ -48,6 +48,20 @@ describe("QuizForm", () => {
     expect(onSubmit).toHaveBeenCalledWith("Dune", "Chapter 1", "It was a hot day on Arrakis.");
   });
 
+  it("ignores a submit event while already loading (defense in depth)", () => {
+    // Inputs/button are disabled while loading, which normally prevents this
+    // — this exercises the handler's own loading guard directly, in case a
+    // submit event ever reaches it some other way (e.g. Enter mid-request).
+    const onSubmit = vi.fn();
+    const { container, rerender } = render(<QuizForm onSubmit={onSubmit} loading={false} />);
+    fillBookAndChapter();
+    rerender(<QuizForm onSubmit={onSubmit} loading={true} />);
+
+    fireEvent.submit(container.querySelector("form")!);
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("disables inputs while loading", () => {
     render(<QuizForm onSubmit={vi.fn()} loading={true} />);
 

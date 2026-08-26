@@ -147,6 +147,83 @@ describe("generateQuiz", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it("logs a warning but still succeeds when a web search errors out", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const searchErrorBlock: Anthropic.ContentBlock = {
+      type: "web_search_tool_result",
+      tool_use_id: "toolu_1",
+      caller: { type: "direct" },
+      content: { type: "web_search_tool_result_error", error_code: "unavailable" },
+    };
+    create.mockResolvedValueOnce(
+      makeMessage([searchErrorBlock, textBlock(validQuizJson)], "end_turn"),
+    );
+
+    const quiz = await generateQuiz("Dune", "Chapter 1");
+
+    expect(quiz.status).toBe("ok");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "web_search_tool_result error:",
+      expect.objectContaining({ error_code: "unavailable" }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("retries after a max_tokens truncation and succeeds", async () => {
+    create
+      .mockResolvedValueOnce(makeMessage([textBlock('{"status":')], "max_tokens"))
+      .mockResolvedValueOnce(makeMessage([textBlock(validQuizJson)], "end_turn"));
+
+    const quiz = await generateQuiz("Dune", "Chapter 1");
+
+    expect(quiz.status).toBe("ok");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries when the response has no text content, then succeeds", async () => {
+    create
+      .mockResolvedValueOnce(makeMessage([], "end_turn"))
+      .mockResolvedValueOnce(makeMessage([textBlock(validQuizJson)], "end_turn"));
+
+    const quiz = await generateQuiz("Dune", "Chapter 1");
+
+    expect(quiz.status).toBe("ok");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("propagates a deliberate refusal (status: error) hit only on the retry", async () => {
+    const errorJson = JSON.stringify({ status: "error", reason: "No such book exists." });
+    create
+      .mockResolvedValueOnce(makeMessage([textBlock("not json at all")], "end_turn"))
+      .mockResolvedValueOnce(makeMessage([textBlock(errorJson)], "end_turn"));
+
+    await expect(generateQuiz("Nonexistent Book", "Chapter 1")).rejects.toMatchObject({
+      status: 422,
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("propagates a classified SDK error hit only on the retry", async () => {
+    create
+      .mockResolvedValueOnce(makeMessage([textBlock("not json at all")], "end_turn"))
+      .mockRejectedValueOnce(
+        new Anthropic.RateLimitError(429, { message: "slow down" }, "slow down", new Headers()),
+      );
+
+    await expect(generateQuiz("Dune", "Chapter 1")).rejects.toMatchObject({ status: 429 });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up with a 502 if the retry also produces an unusable response", async () => {
+    create.mockResolvedValue(makeMessage([textBlock("not json at all")], "end_turn"));
+
+    await expect(generateQuiz("Dune", "Chapter 1")).rejects.toMatchObject({
+      status: 502,
+      message: expect.stringContaining("wasn't usable"),
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
   it("gives up with a 504 if the search loop never wraps up, even after a retry", async () => {
     create.mockResolvedValue(makeMessage([textBlock("still searching...")], "pause_turn"));
 
