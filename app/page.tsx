@@ -63,6 +63,10 @@ export default function Page() {
   }
 
   function handleRegenerate() {
+    // Defensive only: onRegenerate is wired up to a button that only exists
+    // on the results screen, which itself only renders when `quiz` is set —
+    // so this can't actually be exercised through the UI.
+    /* v8 ignore next */
     if (!quiz) return;
     // Re-uses the normalized book/chapter the model already settled on (plus
     // the original pasted text, if any), and marks the request as a

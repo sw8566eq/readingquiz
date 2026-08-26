@@ -8,7 +8,7 @@ vi.mock("../../../lib/generate-quiz", async (importOriginal) => {
   return { ...actual, generateQuiz: vi.fn() };
 });
 
-import { generateQuiz } from "../../../lib/generate-quiz";
+import { QuizGenerationError, generateQuiz } from "../../../lib/generate-quiz";
 import { POST } from "./route";
 
 const generateQuizMock = generateQuiz as unknown as ReturnType<typeof vi.fn>;
@@ -83,5 +83,50 @@ describe("POST /api/generate-quiz caching", () => {
     const third = await POST(postRequest({ book: "Dune", chapter: "Chapter 1" }));
     expect(generateQuizMock).toHaveBeenCalledTimes(2); // still 2 — served from the refreshed cache
     expect((await third.json()).questions[0].question).toBe("Fresh question?");
+  });
+});
+
+describe("POST /api/generate-quiz error handling", () => {
+  beforeEach(() => {
+    clearQuizCache();
+    generateQuizMock.mockReset();
+  });
+
+  it("returns 400 for an invalid request body, without calling generateQuiz", async () => {
+    const res = await POST(postRequest({ book: "", chapter: "" }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/book title/i);
+    expect(generateQuizMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for a non-JSON body", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/generate-quiz", { method: "POST", body: "not json" }),
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("maps a QuizGenerationError's status and message onto the response", async () => {
+    generateQuizMock.mockRejectedValueOnce(new QuizGenerationError("No such chapter.", 422));
+
+    const res = await POST(postRequest({ book: "Dune", chapter: "Chapter 99" }));
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("No such chapter.");
+  });
+
+  it("falls back to a generic 500 for an unexpected error", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    generateQuizMock.mockRejectedValueOnce(new Error("boom"));
+
+    const res = await POST(postRequest({ book: "Dune", chapter: "Chapter 1" }));
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe(
+      "Something went wrong generating the quiz. Please try again.",
+    );
+    errSpy.mockRestore();
   });
 });

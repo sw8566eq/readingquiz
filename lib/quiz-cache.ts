@@ -24,6 +24,10 @@ export function setCachedQuiz(key: string, quiz: Quiz): void {
     // FIFO eviction — a Map iterates keys in insertion order, so the first
     // one out is the oldest entry.
     const oldestKey = cache.keys().next().value;
+    // The `undefined` case can't actually happen here (size >= MAX_ENTRIES > 0
+    // guarantees a first key) — it's only in the type from Map's iterator
+    // protocol. Guarded defensively rather than asserted away.
+    /* v8 ignore else */
     if (oldestKey !== undefined) cache.delete(oldestKey);
   }
   cache.set(key, quiz);
