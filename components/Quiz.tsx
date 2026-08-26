@@ -6,9 +6,10 @@ import type { Quiz as QuizType } from "@/lib/quiz-schema";
 type QuizProps = {
   quiz: QuizType;
   onReset: () => void;
+  onRegenerate: () => void;
 };
 
-export default function Quiz({ quiz, onReset }: QuizProps) {
+export default function Quiz({ quiz, onReset, onRegenerate }: QuizProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<(number | null)[]>(
     () => quiz.questions.map(() => null),
@@ -44,13 +45,22 @@ export default function Quiz({ quiz, onReset }: QuizProps) {
             Final score: <span className="font-medium">{score} / {quiz.questions.length}</span>
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="self-start rounded-md border border-black/15 dark:border-white/20 px-4 py-2 font-medium"
-        >
-          Try another chapter
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onRegenerate}
+            className="rounded-md bg-foreground text-background px-4 py-2 font-medium"
+          >
+            New questions on this chapter
+          </button>
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded-md border border-black/15 dark:border-white/20 px-4 py-2 font-medium"
+          >
+            Try another chapter
+          </button>
+        </div>
       </div>
     );
   }

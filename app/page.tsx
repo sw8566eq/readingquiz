@@ -11,17 +11,26 @@ export default function Page() {
   const [status, setStatus] = useState<Status>("idle");
   const [quiz, setQuiz] = useState<QuizType | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Remembered so "New questions on this chapter" can resubmit the same
+  // pasted source text — the API response never echoes it back to us.
+  const [lastChapterText, setLastChapterText] = useState<string | undefined>(undefined);
 
-  async function handleSubmit(book: string, chapter: string) {
+  async function handleSubmit(
+    book: string,
+    chapter: string,
+    chapterText?: string,
+    regenerate = false,
+  ) {
     setStatus("loading");
     setErrorMessage(null);
+    setLastChapterText(chapterText);
 
     let res: Response;
     try {
       res = await fetch("/api/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ book, chapter }),
+        body: JSON.stringify({ book, chapter, chapterText, regenerate }),
       });
     } catch {
       setErrorMessage("Network error — couldn't reach the server. Please try again.");
@@ -53,6 +62,15 @@ export default function Page() {
     setErrorMessage(null);
   }
 
+  function handleRegenerate() {
+    if (!quiz) return;
+    // Re-uses the normalized book/chapter the model already settled on (plus
+    // the original pasted text, if any), and marks the request as a
+    // regenerate so the cache layer knows to skip serving a stale quiz for
+    // this key rather than handing back the same result.
+    handleSubmit(quiz.book, quiz.chapter, lastChapterText, true);
+  }
+
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-6 py-12">
       <h1 className="mb-1 text-2xl font-semibold">ReadingQuiz</h1>
@@ -65,7 +83,9 @@ export default function Page() {
           <QuizForm onSubmit={handleSubmit} loading={status === "loading"} />
           {status === "loading" && (
             <p className="mt-4 text-sm text-black/60 dark:text-white/60">
-              Searching the web and writing your quiz… this can take 15–45 seconds.
+              {lastChapterText
+                ? "Writing your quiz from the pasted text… this can take a few seconds."
+                : "Searching the web and writing your quiz… this can take 15–45 seconds."}
             </p>
           )}
           {status === "error" && errorMessage && (
@@ -74,7 +94,9 @@ export default function Page() {
         </>
       )}
 
-      {status === "ready" && quiz && <Quiz quiz={quiz} onReset={handleReset} />}
+      {status === "ready" && quiz && (
+        <Quiz quiz={quiz} onReset={handleReset} onRegenerate={handleRegenerate} />
+      )}
     </main>
   );
 }
