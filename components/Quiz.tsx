@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Quiz as QuizType } from "@/lib/quiz-schema";
+import { BUTTON_PRIMARY_CLASSES, BUTTON_SECONDARY_CLASSES } from "./styles";
 
 type QuizProps = {
   quiz: QuizType;
@@ -55,18 +56,10 @@ export default function Quiz({ quiz, onReset, onRegenerate }: QuizProps) {
           </p>
         </div>
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onRegenerate}
-            className="rounded-md bg-foreground text-background px-4 py-2 font-medium"
-          >
+          <button type="button" onClick={onRegenerate} className={BUTTON_PRIMARY_CLASSES}>
             New questions on this chapter
           </button>
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-md border border-black/15 dark:border-white/20 px-4 py-2 font-medium"
-          >
+          <button type="button" onClick={onReset} className={BUTTON_SECONDARY_CLASSES}>
             Try another chapter
           </button>
         </div>
@@ -138,11 +131,7 @@ export default function Quiz({ quiz, onReset, onRegenerate }: QuizProps) {
           >
             {isCorrect ? "Correct!" : "Not quite."}
           </p>
-          <button
-            type="button"
-            onClick={goNext}
-            className="rounded-md bg-foreground text-background px-4 py-2 font-medium"
-          >
+          <button type="button" onClick={goNext} className={BUTTON_PRIMARY_CLASSES}>
             {isLastQuestion ? "See results" : "Next question"}
           </button>
         </div>

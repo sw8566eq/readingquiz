@@ -30,13 +30,13 @@ function postRequest(body: unknown): Request {
   });
 }
 
+beforeEach(() => {
+  clearQuizCache();
+  generateQuizMock.mockReset();
+});
+
 describe("POST /api/generate-quiz caching", () => {
   const originalEnv = process.env.ENABLE_QUIZ_CACHE;
-
-  beforeEach(() => {
-    clearQuizCache();
-    generateQuizMock.mockReset();
-  });
 
   afterEach(() => {
     if (originalEnv === undefined) delete process.env.ENABLE_QUIZ_CACHE;
@@ -87,11 +87,6 @@ describe("POST /api/generate-quiz caching", () => {
 });
 
 describe("POST /api/generate-quiz error handling", () => {
-  beforeEach(() => {
-    clearQuizCache();
-    generateQuizMock.mockReset();
-  });
-
   it("returns 400 for an invalid request body, without calling generateQuiz", async () => {
     const res = await POST(postRequest({ book: "", chapter: "" }));
 
