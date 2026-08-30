@@ -208,8 +208,6 @@ async function attemptOnce(book: string, chapter: string, chapterText?: string):
  * Maps a thrown SDK error to a user-facing QuizGenerationError, or returns
  * null if `err` isn't one of the SDK's typed exceptions (e.g. a JSON-parse
  * or schema-validation failure) — the caller decides what to do with those.
- * Shared between the first attempt and the retry so neither path silently
- * downgrades a specific error (auth, rate limit) into a generic one.
  */
 function classifySdkError(err: unknown): QuizGenerationError | null {
   if (err instanceof Anthropic.AuthenticationError) {
@@ -230,6 +228,20 @@ function classifySdkError(err: unknown): QuizGenerationError | null {
   return null;
 }
 
+/**
+ * Rethrows `err` unchanged if it's already a deliberate QuizGenerationError,
+ * or rethrows it mapped to one if it's a classified SDK error. Otherwise
+ * returns normally so the caller can fall through to its own handling.
+ * Shared between the first attempt and the retry so neither path silently
+ * downgrades a specific error (auth, rate limit, deliberate refusal) into a
+ * generic one.
+ */
+function rethrowKnownErrors(err: unknown): void {
+  if (err instanceof QuizGenerationError) throw err;
+  const classified = classifySdkError(err);
+  if (classified) throw classified;
+}
+
 export async function generateQuiz(
   book: string,
   chapter: string,
@@ -238,9 +250,7 @@ export async function generateQuiz(
   try {
     return await attemptOnce(book, chapter, chapterText);
   } catch (err) {
-    if (err instanceof QuizGenerationError) throw err; // deliberate "no summary" — don't retry
-    const classified = classifySdkError(err);
-    if (classified) throw classified;
+    rethrowKnownErrors(err); // deliberate "no summary" or a typed SDK error — don't retry
 
     // Neither a deliberate model refusal nor a typed SDK error — likely
     // malformed JSON, failed schema validation, or a truncated/incomplete
@@ -248,9 +258,7 @@ export async function generateQuiz(
     try {
       return await attemptOnce(book, chapter, chapterText);
     } catch (retryErr) {
-      if (retryErr instanceof QuizGenerationError) throw retryErr;
-      const retryClassified = classifySdkError(retryErr);
-      if (retryClassified) throw retryClassified;
+      rethrowKnownErrors(retryErr);
       if (retryErr instanceof IncompleteResponseError) {
         throw new QuizGenerationError(
           "This is taking too many search steps to finish (a long search, or a very detailed chapter). Please try again, or try a more specific chapter reference.",

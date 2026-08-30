@@ -2,11 +2,42 @@
 
 import { useState, type FormEvent } from "react";
 import { MAX_CHAPTER_TEXT_LENGTH, MAX_FIELD_LENGTH } from "@/lib/quiz-schema";
+import { BUTTON_PRIMARY_CLASSES, FIELD_CLASSES } from "./styles";
 
 type QuizFormProps = {
   onSubmit: (book: string, chapter: string, chapterText?: string) => void;
   loading: boolean;
 };
+
+type TextFieldProps = {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled: boolean;
+};
+
+/** Book title and chapter share this exact shape — label above a single-line input. */
+function TextField({ id, label, value, onChange, placeholder, disabled }: TextFieldProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        maxLength={MAX_FIELD_LENGTH}
+        disabled={disabled}
+        className={FIELD_CLASSES}
+      />
+    </div>
+  );
+}
 
 export default function QuizForm({ onSubmit, loading }: QuizFormProps) {
   const [book, setBook] = useState("");
@@ -22,36 +53,22 @@ export default function QuizForm({ onSubmit, loading }: QuizFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="book" className="text-sm font-medium">
-          Book title
-        </label>
-        <input
-          id="book"
-          type="text"
-          value={book}
-          onChange={(e) => setBook(e.target.value)}
-          placeholder="e.g. To Kill a Mockingbird"
-          maxLength={MAX_FIELD_LENGTH}
-          disabled={loading}
-          className="rounded-md border border-black/15 dark:border-white/20 bg-transparent px-3 py-2 outline-none focus:border-black/40 dark:focus:border-white/40 disabled:opacity-50"
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="chapter" className="text-sm font-medium">
-          Chapter
-        </label>
-        <input
-          id="chapter"
-          type="text"
-          value={chapter}
-          onChange={(e) => setChapter(e.target.value)}
-          placeholder="e.g. Chapter 3"
-          maxLength={MAX_FIELD_LENGTH}
-          disabled={loading}
-          className="rounded-md border border-black/15 dark:border-white/20 bg-transparent px-3 py-2 outline-none focus:border-black/40 dark:focus:border-white/40 disabled:opacity-50"
-        />
-      </div>
+      <TextField
+        id="book"
+        label="Book title"
+        value={book}
+        onChange={setBook}
+        placeholder="e.g. To Kill a Mockingbird"
+        disabled={loading}
+      />
+      <TextField
+        id="chapter"
+        label="Chapter"
+        value={chapter}
+        onChange={setChapter}
+        placeholder="e.g. Chapter 3"
+        disabled={loading}
+      />
 
       <button
         type="button"
@@ -77,7 +94,7 @@ export default function QuizForm({ onSubmit, loading }: QuizFormProps) {
             maxLength={MAX_CHAPTER_TEXT_LENGTH}
             disabled={loading}
             rows={8}
-            className="rounded-md border border-black/15 dark:border-white/20 bg-transparent px-3 py-2 outline-none focus:border-black/40 dark:focus:border-white/40 disabled:opacity-50"
+            className={FIELD_CLASSES}
           />
         </div>
       )}
@@ -85,7 +102,7 @@ export default function QuizForm({ onSubmit, loading }: QuizFormProps) {
       <button
         type="submit"
         disabled={loading || !book.trim() || !chapter.trim()}
-        className="mt-2 rounded-md bg-foreground text-background px-4 py-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`mt-2 ${BUTTON_PRIMARY_CLASSES} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {loading ? "Generating quiz…" : "Generate quiz"}
       </button>

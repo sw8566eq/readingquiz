@@ -19,22 +19,24 @@ export async function POST(request: Request) {
     );
   }
 
+  const { book, chapter, chapterText, regenerate } = parsed.data;
+
   // Off by default — this only matters for someone who deploys this
   // somewhere with real traffic and wants to cut down on repeat Anthropic
   // calls for the same book+chapter. Unset ENABLE_QUIZ_CACHE means every
   // request always generates fresh, same as before this existed. Never
   // applies to a pasted-chapter-text request — different pasted text for the
   // same book/chapter label would otherwise risk serving a mismatched quiz.
-  const cacheEnabled = process.env.ENABLE_QUIZ_CACHE === "true" && !parsed.data.chapterText;
-  const key = cacheKey(parsed.data.book, parsed.data.chapter);
+  const cacheEnabled = process.env.ENABLE_QUIZ_CACHE === "true" && !chapterText;
+  const key = cacheKey(book, chapter);
 
-  if (cacheEnabled && !parsed.data.regenerate) {
+  if (cacheEnabled && !regenerate) {
     const cached = getCachedQuiz(key);
     if (cached) return NextResponse.json(cached);
   }
 
   try {
-    const quiz = await generateQuiz(parsed.data.book, parsed.data.chapter, parsed.data.chapterText);
+    const quiz = await generateQuiz(book, chapter, chapterText);
     if (cacheEnabled) setCachedQuiz(key, quiz);
     return NextResponse.json(quiz);
   } catch (err) {
