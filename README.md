@@ -1,4 +1,4 @@
-# Reading Quiz
+# ReadingQuiz
 
 Give it a book title and a chapter, get back a 5-question multiple-choice
 quiz that checks whether you actually read and understood that chapter —
@@ -45,6 +45,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - `app/` — pages and the `POST /api/generate-quiz` route handler
 - `lib/generate-quiz.ts` — prompt construction, Claude API call, retry/error handling
+- `lib/anthropic.ts` — shared Anthropic SDK client
 - `lib/quiz-schema.ts` — Zod schemas shared by the client, route, and model output
 - `lib/quiz-cache.ts` — optional in-memory quiz cache (see below)
 - `components/` — `QuizForm` (input) and `Quiz` (question flow + scoring)
