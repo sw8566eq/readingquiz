@@ -102,7 +102,7 @@ export default function QuizForm({ onSubmit, loading }: QuizFormProps) {
       <button
         type="submit"
         disabled={loading || !book.trim() || !chapter.trim()}
-        className={`mt-2 ${BUTTON_PRIMARY_CLASSES} disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`mt-2 ${BUTTON_PRIMARY_CLASSES}`}
       >
         {loading ? "Generating quiz…" : "Generate quiz"}
       </button>
